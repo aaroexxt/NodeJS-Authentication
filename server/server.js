@@ -8,13 +8,23 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 
+const bcrypt = require('bcrypt-nodejs');
+
 const users = [
-  {id: '2f24vvg', email: 'test@test.com', password: 'password'}
+  {id: '2f24vvg', email: 'test@test.com', password: '$2a$10$94vHzy2wUcdNdXOFjbQWHOgyq.Ewc1x.Rjme4htmTisaLmH7S7rra'} //hashed password
 ]
 
 const findUserByEmail = email => {
     for (var i=0; i<users.length; i++) {
         if (users[i].email && users[i].email == email) {
+            return users[i];
+        }
+    }
+    return null;
+}
+const findUserByID = id => {
+    for (var i=0; i<users.length; i++) {
+        if (users[i].id && users[i].id == id) {
             return users[i];
         }
     }
@@ -27,11 +37,17 @@ passport.use(new LocalStrategy(
   (email, password, done) => {
     console.log('Passport localStrategy found, looking up user w/email: '+email+", passwd: "+password);
     var user = findUserByEmail(email);
-    if (user && user.password == password) {
-        console.log("User found & validated");
-        return done(null, user)
+    if (user && user.password) {
+        console.log("User found, matching password to bcrypt hash "+user.password);
+        if (bcrypt.compareSync(password, user.password)) {
+            console.log("Bcrypt ok");
+            return done(null, user)
+        } else {
+            console.log("Bcrypt not ok");
+            return done(null, false, { message: 'Invalid credentials.\n' });
+        }
     } else {
-        console.log("No user found");
+        console.log("No user found or it is undefined");
         return done(null, false, { "message": "No user found" });
     }
   }
@@ -41,6 +57,16 @@ passport.use(new LocalStrategy(
 passport.serializeUser((user, done) => {
   console.log('Inside serializeUser callback. User id is save to the session file store here')
   done(null, user.id);
+});
+
+passport.deserializeUser((id, done) => { //i.e. find user by id
+  console.log('Inside deserializeUser callback, looking up user by id='+id);
+  let user = findUserByID(id);
+  console.log("Found user object: "+JSON.stringify(user))
+  if (user === null || typeof user == "undefined") {
+    user = false;
+  } 
+  done(null, user);
 });
 
 // create the server
@@ -78,16 +104,24 @@ app.post('/login', (req, res, next) => {
     console.log('Inside POST request on /login, sessID: '+req.sessionID)
     passport.authenticate('local', (err, user, info) => {
         if(info) {return res.send(info.message)}
-        console.log('Inside passport.authenticate() callback');
-        console.log(`req.session.passport: ${JSON.stringify(req.session.passport)}`)
-        console.log(`req.user: ${JSON.stringify(req.user)}`)
+        if (err) { return next(err); }
+        if (!user) { return res.redirect('/login'); }
         req.login(user, (err) => {
-            console.log('Inside req.login() callback')
-            console.log(`req.session.passport: ${JSON.stringify(req.session.passport)}`)
-            console.log(`req.user: ${JSON.stringify(req.user)}`)
-            return res.send('You were authenticated & logged in!\n');
+          if (err) { return next(err); }
+          console.log("You were authenticated :)")
+          return res.redirect('/authrequired');
         })
     })(req, res, next);
+})
+
+app.get('/authrequired', (req, res) => {
+  console.log('Inside GET /authrequired callback')
+  console.log(`User authenticated? ${req.isAuthenticated()}`)
+  if(req.isAuthenticated()) {
+    res.send('you hit the authentication endpoint\n')
+  } else {
+    res.redirect('/')
+  }
 })
 
 // tell the server what port to listen on
