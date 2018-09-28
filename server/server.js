@@ -8,7 +8,7 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 
-const bcrypt = require('bcrypt-nodejs');
+const bcrypt = require('bcrypt');
 
 const users = [
   {id: '2f24vvg', email: 'test@test.com', password: '$2a$10$94vHzy2wUcdNdXOFjbQWHOgyq.Ewc1x.Rjme4htmTisaLmH7S7rra'} //hashed password
@@ -48,7 +48,7 @@ passport.use(new LocalStrategy(
         }
     } else {
         console.log("No user found or it is undefined");
-        return done(null, false, { "message": "No user found" });
+        return done(null, false, { "message": "Invalid email." });
     }
   }
 ));
