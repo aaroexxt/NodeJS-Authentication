@@ -7,11 +7,16 @@ const bodyParser = require('body-parser');
 
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
+const CustomStrategy = require('passport-custom').Strategy;
 
 const bcrypt = require('bcrypt');
 
 const users = [
   {id: '2f24vvg', email: 'test@test.com', password: '$2a$10$94vHzy2wUcdNdXOFjbQWHOgyq.Ewc1x.Rjme4htmTisaLmH7S7rra'} //hashed password
+]
+
+const faceOK = [
+    {id: ''}
 ]
 
 const findUserByEmail = email => {
@@ -44,15 +49,19 @@ passport.use(new LocalStrategy(
             return done(null, user)
         } else {
             console.log("Bcrypt not ok");
-            return done(null, false, { message: 'Invalid credentials.\n' });
+            return done(null, true, { message: 'Invalid credentials.\n' });
         }
     } else {
         console.log("No user found or it is undefined");
-        return done(null, false, { "message": "Invalid email." });
+        return done(null, true, { "message": "Invalid credentials." });
     }
   }
 ));
 
+passport.use('openCV', new CustomStrategy( function(req, done) {
+    console.log("DOING CV SHIT");
+    done(null, users[0]);
+}))
 // tell passport how to serialize the user
 passport.serializeUser((user, done) => {
   console.log('Inside serializeUser callback. User id is save to the session file store here')
@@ -97,12 +106,30 @@ app.get('/', (req, res) => {
 // create the login get and post routes
 app.get('/login', (req, res) => {
     console.log('Inside GET request on /login, sessID: '+req.sessionID);
-    res.send(`You hit login page!\n`)
+    if (req.isAuthenticated()) {
+        res.redirect("/authrequired");
+    } else {
+        res.send(`You hit login page!\n<form action="/loginRegular" method="post">Email:<br><input type="text" name="email"><br>Password:<br><input type="text" name="password"><br><input type="submit" value="Submit"></form>`)
+    }
 })
 
-app.post('/login', (req, res, next) => {
-    console.log('Inside POST request on /login, sessID: '+req.sessionID)
+app.post('/loginRegular', (req, res, next) => {
+    console.log('Inside POST request on /loginRegular, sessID: '+req.sessionID)
     passport.authenticate('local', (err, user, info) => {
+        if(info) {return res.send(info.message)}
+        if (err) { return next(err); }
+        if (!user) { return res.redirect('/login'); }
+        req.login(user, (err) => {
+          if (err) { return next(err); }
+          console.log("You were authenticated :)")
+          return res.redirect('/authrequired');
+        })
+    })(req, res, next);
+})
+
+app.post('/loginCV', (req, res, next) => {
+    console.log('Inside POST request on /loginCV, sessID: '+req.sessionID)
+    passport.authenticate('openCV', (err, user, info) => {
         if(info) {return res.send(info.message)}
         if (err) { return next(err); }
         if (!user) { return res.redirect('/login'); }
@@ -118,9 +145,9 @@ app.get('/authrequired', (req, res) => {
   console.log('Inside GET /authrequired callback')
   console.log(`User authenticated? ${req.isAuthenticated()}`)
   if(req.isAuthenticated()) {
-    res.send('you hit the authentication endpoint\n')
+    res.send('You are logged in :)\n')
   } else {
-    res.redirect('/')
+    res.redirect('/login')
   }
 })
 
