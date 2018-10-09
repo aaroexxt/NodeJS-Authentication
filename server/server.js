@@ -113,6 +113,9 @@ app.get('/login', (req, res) => {
     }
 })
 
+app.get('/loginRegular', (req, res, next) => {
+    res.redirect("/login");
+});
 app.post('/loginRegular', (req, res, next) => {
     console.log('Inside POST request on /loginRegular, sessID: '+req.sessionID)
     passport.authenticate('local', (err, user, info) => {
@@ -127,6 +130,9 @@ app.post('/loginRegular', (req, res, next) => {
     })(req, res, next);
 })
 
+app.get('/loginCV', (req, res, next) => {
+    res.redirect("/login");
+});
 app.post('/loginCV', (req, res, next) => {
     console.log('Inside POST request on /loginCV, sessID: '+req.sessionID)
     passport.authenticate('openCV', (err, user, info) => {
